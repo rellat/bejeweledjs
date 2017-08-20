@@ -2,11 +2,15 @@
   "name": "bejeweledjs",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "browserify src/index.js -s Bejeweledjs -o js/bejeweledjs.js",
+    "watch": "watchify src/index.js -s Bejeweledjs -o js/bejeweledjs.js"
   },
-  "author": "",
+  "author": "Chase Lee",
   "license": "ISC",
-  "dependencies": {}
+  "dependencies": {
+    "seedrandom": "^2.4.3"
+  }
 }

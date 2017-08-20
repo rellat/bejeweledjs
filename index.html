@@ -1,19 +1,18 @@
-<!doctype html> 
-<html lang="en"> 
-<head> 
-	<meta charset="UTF-8" />
-	<title>Bejeweled: Bootcamp Edition</title>
-	<div id="bg">
-  	<img id="background" src="assets/background.png" alt="">
-	</div>
-	<script type="text/javascript" src="js/phaser.min.js"></script>
-	<script type="text/javascript" src="js/boot.js"></script>
-	<script type="text/javascript" src="js/preload.js"></script>
-	<script type="text/javascript" src="js/gametitle.js"></script>
-	<script type="text/javascript" src="js/main.js"></script>
-	<script type="text/javascript" src="js/gameover.js"></script>
-	<link rel="stylesheet" href="application.css" />
-	<div id="phaser-container"></div>
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Bejeweled: Bootcamp Edition</title>
+    <div id="bg">
+        <img id="background" src="assets/background.png" alt="">
+    </div>
+    <!-- <script type="text/javascript" src="js/phaser.min.js"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/2.6.2/phaser.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser-ce/2.8.4/phaser.js"></script>
+    <script type="text/javascript" src="js/bejeweledjs.js"></script>
+    <link rel="stylesheet" href="application.css" />
+    <div id="phaser-container"></div>
     <style type="text/css">
         body {
             margin: 0;
@@ -21,25 +20,12 @@
     </style>
 
     <script type="text/javascript">
-		(function() {
-
-				//Create a new game that fills the screen
-				game = new Phaser.Game(600, 670, Phaser.AUTO, 'phaser-container');
-				
-				//Add all states
-				game.state.add("Boot", Boot);
-				game.state.add("Preload", Preload);
-				game.state.add("GameTitle", GameTitle);
-				game.state.add("Main", Main);
-				game.state.add("GameOver", GameOver);
-
-				//Start the first state
-				game.state.start("Boot");
-
-		})();
+        Bejeweledjs();
     </script>
 
 </head>
+
 <body>
 </body>
+
 </html>
