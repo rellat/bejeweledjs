@@ -1,12 +1,24 @@
 var crypto = require('crypto')
 var SeedRandom = require('seedrandom')
+var Util = require('../game_server/socket_util')
 
 var GameLogic = function(options) {
     var self = this
 
     self.jewelTypes = ['blue', 'green', 'red', 'yellow']
-    self.random = SeedRandom(options.randomSeed || Date.now())
+
+    self.randomSeed = options.randomSeed || Date.now()
+    self.random = SeedRandom(self.randomSeed)
     self.score = 0
+    self.id = options.id || 'offline'
+
+    self.history = []
+    // make an Action packet:
+    // time: Timetic by owner,
+    // owner: object owner - player id,
+    // seed: current seed number for random
+    // type: (0 for player connection, 1 for recieved seed transfer, 2 for player made action),
+    // message: any
 
     // jewelMap init
     self.jewelMap = []
@@ -26,6 +38,13 @@ var GameLogic = function(options) {
     }
     // console.log('ready jewelmap ' + JSON.stringify(self.jewelMap))
 }
+
+GameLogic.prototype.pushHistory = function (time, seed, type, message) {
+    var self = this
+    self.randomSeed = seed
+    // push action to history log
+    self.history.push({ time: time, owner: self.id, seed: seed, type: type, message: message })
+};
 
 GameLogic.prototype.makeJewel = function() {
     var self = this
@@ -181,23 +200,29 @@ GameLogic.prototype.execAction = function(posFrom, posTO) {
     if (!result.is_matched) {
         self.jewelMap[posFrom.y][posFrom.x].type = posFrom.type
         self.jewelMap[posTO.y][posTO.x].type = posTO.type
+    }else {
+        self.pushHistory(Date.now(), self.randomSeed, Util.ACTION_TYPE.ACTION_MADE, {from: posFrom, to: posTO})
     }
     return result
 }
-GameLogic.prototype.validateAction = function(posFrom, posTO) {
+GameLogic.prototype.syncAction = function(posFrom, posTO, message) {
     var self = this
+
     posFrom.type = self.jewelMap[posFrom.y][posFrom.x].type
     posTO.type = self.jewelMap[posTO.y][posTO.x].type
 
     self.jewelMap[posFrom.y][posFrom.x].type = posTO.type
     self.jewelMap[posTO.y][posTO.x].type = posFrom.type
 
-    var matches = self.getMatch()
-
-    self.jewelMap[posFrom.y][posFrom.x].type = posFrom.type
-    self.jewelMap[posTO.y][posTO.x].type = posTO.type
-
-    return matches ? true : false
+    var result = self.processMatch()
+    if (!result.is_matched) {
+        self.jewelMap[posFrom.y][posFrom.x].type = posFrom.type
+        self.jewelMap[posTO.y][posTO.x].type = posTO.type
+        console.warn('client '+ self.id + ' recieved invalidate action');
+    }else {
+        self.pushHistory(message.time, message.randomSeed, message.type, message.message)
+    }
+    return result
 }
 GameLogic.prototype.validateBoard = function(hashtext) {
     var self = this

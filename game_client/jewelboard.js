@@ -1,16 +1,21 @@
 var GameLogic = require('./gamelogic')
+var Util = require('../game_server/socket_util')
+var EventEmitter = require('events').EventEmitter
+var inherits = require('inherits')
 
-var JewelBoard = function(options) {
+inherits(JewelBoard, EventEmitter)
+
+function JewelBoard(options) {
     var self = this
+    if (!(self instanceof JewelBoard)) return new JewelBoard(options)
 
     self.game = options.phaserGame
-    self.logic = new GameLogic({
-        mapsize: options.mapsize,
-        randomSeed: options.randomSeed
-    })
+    self.logic = null
     self.container = self.game.add.group()
     self.tileSize = options.tileSize || 100 // pixel
     self.tileScaler = self.tileSize / self.game.cache.getImage('blue').width
+
+    self.observe = options.observe || false
 
     self.canMove = false
     self.activeTile1 = null
@@ -19,6 +24,27 @@ var JewelBoard = function(options) {
     self.swipeSpeed = 400
     self.removeSpeed = 300
     self.fallSpeed = 500
+
+    if(!self.observe) {
+        self.logic = new GameLogic({
+            id: options.id || 'offline',
+            mapsize: options.mapsize,
+            randomSeed: options.randomSeed
+        })
+        self.initGame()
+    }
+}
+JewelBoard.prototype.initGame = function (tlogic) {
+    var self = this
+    if (!self.logic) {
+        self.logic = tlogic
+    }
+
+    // fast forward matching process at init.
+    var result = self.logic.processMatch()
+    while (result.is_matched) {
+        result = self.logic.processMatch()
+    }
 
     // initTiles
     for (var i = 0; i < self.logic.jewelMap.length; i++) {
@@ -38,8 +64,7 @@ var JewelBoard = function(options) {
         var result = self.logic.processMatch()
         self.processMatch(result)
     })
-}
-
+};
 JewelBoard.prototype.addTile = function(x, y, jewelobj) {
     var self = this
 
@@ -51,8 +76,11 @@ JewelBoard.prototype.addTile = function(x, y, jewelobj) {
     tile.inputEnabled = true
     // tile.tileType = type
     tile.jewel = jewelobj
-    tile.events.onInputDown.add(self.tilePress, self)
-    tile.events.onInputUp.add(self.tileRelease, self)
+
+    if(!self.observe) {
+        tile.events.onInputDown.add(self.tilePress, self)
+        tile.events.onInputUp.add(self.tileRelease, self)
+    }
 
     return tile
 }
@@ -97,7 +125,7 @@ JewelBoard.prototype.update = function() {
             if ((Math.abs(difY) === 1 && difX === 0) || (Math.abs(difX) === 1 && difY === 0)) {
                 // when it's a swipe, not a click
                 self.canMove = false
-                self.activeTile2 = self.getTilePos(hoverPosX, hoverPosY)
+                self.activeTile2 = self.getTileFromPos(hoverPosX, hoverPosY)
 
                 var result = self.logic.execAction({
                     x: targetPosX,
@@ -108,12 +136,34 @@ JewelBoard.prototype.update = function() {
                 })
                 self.swapTiles(self.activeTile1, self.activeTile2)
 
+                // broadcast user action
+                self.emit('user action', {
+                    client_id: self.logic.id,
+                    time: Date.now(),
+                    seed: self.logic.randomSeed,
+                    type: Util.ACTION_TYPE.ACTION_MADE,
+                    message: {
+                        from: { x: targetPosX, y: targetPosY },
+                        to: { x: hoverPosX, y: hoverPosY }
+                    }
+                })
+
                 self.processMatch(result)
             }
         }else {
             self.tileDeactivate()
         }
     }
+}
+
+JewelBoard.prototype.syncAction = function(posFrom, posTo, message) {
+    var self = this
+    console.log('check action');
+    var result = self.logic.syncAction(posFrom, posTo, message)
+    self.activeTile1 = self.getTileFromPos(posFrom.x, posFrom.y)
+    self.activeTile2 = self.getTileFromPos(posTo.x, posTo.y)
+    self.swapTiles(self.activeTile1, self.activeTile2)
+    self.processMatch(result)
 }
 
 JewelBoard.prototype.processMatch = function(result) {
@@ -126,6 +176,7 @@ JewelBoard.prototype.processMatch = function(result) {
             self.fillTiles(result.jewelMoves)
         })
         self.tileDeactivate()
+
     } else if (result.is_matched) {
         self.removeTileGroup(result.matchedJewels)
         self.game.time.events.add(self.removeSpeed, function() {
@@ -149,7 +200,7 @@ JewelBoard.prototype.processMatch = function(result) {
     }
 }
 
-JewelBoard.prototype.getTilePos = function(posX, posY) {
+JewelBoard.prototype.getTileFromPos = function(posX, posY) {
     var self = this
     var targettile = null
     self.container.forEach(function(child) {
@@ -192,7 +243,7 @@ JewelBoard.prototype.removeTileGroup = function(jewels) {
     var self = this
     // console.log('remove jewel: ' + JSON.stringify(jewels))
     for (var i = 0; i < jewels.length; i++) {
-        var tile = self.getTilePos(jewels[i].x, jewels[i].y)
+        var tile = self.getTileFromPos(jewels[i].x, jewels[i].y)
         var tween = self.game.add.tween(tile).to({
             alpha: 0.1
         }, self.removeSpeed - 50, 'Linear', true)
@@ -207,7 +258,7 @@ JewelBoard.prototype.removeTileGroup = function(jewels) {
 JewelBoard.prototype.fillTiles = function(jewelMoves) {
     var self = this
     for (var i = 0; i < jewelMoves.length; i++) {
-        var tile = self.getTilePos(jewelMoves[i].from.x, jewelMoves[i].from.y)
+        var tile = self.getTileFromPos(jewelMoves[i].from.x, jewelMoves[i].from.y)
         var jewel = {
             x: jewelMoves[i].to.x,
             y: jewelMoves[i].to.y,

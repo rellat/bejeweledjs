@@ -9,7 +9,7 @@ var GameOver = require('./gameover')
 module.exports = function() {
 
     // Create a new game that fills the screen
-    var game = new Phaser.Game(600, 670, Phaser.AUTO, 'phaser-container')
+    var game = new Phaser.Game(600, 900, Phaser.AUTO, 'phaser-container')
 
     // Add all states
     game.state.add('Boot', Boot)
